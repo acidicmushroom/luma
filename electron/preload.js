@@ -1,0 +1,9 @@
+// PRELOAD FILE
+// A safe bridge: the React app can only use the two functions listed here.
+
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  minimize: () => ipcRenderer.send('window:minimize'),
+  close: () => ipcRenderer.send('window:close')
+});
