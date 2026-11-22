@@ -1,20 +1,20 @@
-// main component
-// it holds the state (what the app knows) and the actions (what the buttons do).
 
 import { useEffect, useRef, useState } from 'react';
 import Visualizer from './Visualizer.jsx';
 import Playlist from './Playlist.jsx';
+import Converter from './Converter.jsx';
+import Settings from './Settings.jsx';
+import Icon from './Icon.jsx';
 
 
-//settings
-
-//add a your theme here and in the themes.css file
+// to add a theme, add it here and in themes.css
 const THEMES = [
   { id: 'xp', name: 'Windows XP' },
-  { id: 'winamp', name: 'Winamp' }
+  { id: 'winamp', name: 'Winamp' },
+  { id: 'aero', name: 'Frutiger Aero' }
 ];
 
-//read / write settings that are remembered between sessions
+// reAD / write settings that are remembered between sessions
 function loadSetting(name, fallback) {
   return localStorage.getItem('luma_' + name) ?? fallback;
 }
@@ -22,7 +22,7 @@ function saveSetting(name, value) {
   localStorage.setItem('luma_' + name, value);
 }
 
-//audio file types we accept
+// audio file types we accept
 const AUDIO_FILE = /\.(mp3|m4a|aac|flac|wav|ogg|opus|wma)$/i;
 
 // 125 seconds -> "2:05"
@@ -33,7 +33,8 @@ function formatTime(seconds) {
   return `${minutes}:${secs}`;
 }
 
-//turns a file into a track with a title and an artist.
+// Turns a file into a track with a title and an artist.
+// "01 - Daft Punk - Around the World.mp3" -> artist "Daft Punk", title "Around the World"
 function makeTrack(file) {
   const name = file.name
     .replace(/\.[^.]+$/, '')          // remove ".mp3"
@@ -46,14 +47,28 @@ function makeTrack(file) {
   return { file, artist: '', title: name };
 }
 
-//App
+
+// find the folder and remove the name
+function getFolderPath(file) {
+  const fullPath = window.electronAPI?.getFilePath(file);
+  if (!fullPath) return '';
+
+  const separator = fullPath.includes('\\') ? '\\' : '/';
+  const parts = fullPath.split(/[\\/]/);
+  const levelsToRemove = file.webkitRelativePath.split('/').length - 1;
+  return parts.slice(0, parts.length - levelsToRemove).join(separator);
+}
 
 export default function App() {
-  // Refs: direct access to an element (no re-render when they change)
-  const audioRef = useRef(null);         // the <audio> element
-  const folderInputRef = useRef(null);   // the hidden folder picker
+  //direct access to an element (no re-render when they change)
+ 
+  // the <audio> element
+  const audioRef = useRef(null);       
+ 
+  // the hidden folder picker
+  const folderInputRef = useRef(null);  
 
-  // State: when one of these changes, the screen updates
+  //when one of these changes, the screen updates
   const [tracks, setTracks] = useState([]);         // all songs
   const [current, setCurrent] = useState(-1);       // position of the playing song (-1 = none)
   const [audioUrl, setAudioUrl] = useState('');     // temporary address of the playing file
@@ -64,61 +79,119 @@ export default function App() {
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState('off');      // 'off' | 'all' | 'one'
   const [search, setSearch] = useState('');
+  const [view, setView] = useState('playlist');     // 'playlist' | 'convert' | 'settings'
+  const [folderPath, setFolderPath] = useState('');   // where the open folder is on the disk
+  const [sleepMinutes, setSleepMinutes] = useState(0);          // sleep timer (0 = off)
+  const [secondsLeft, setSecondsLeft] = useState(0);            // time left on the timer
   const [theme, setTheme] = useState(() => {
     const saved = loadSetting('theme', 'xp');
     return THEMES.some((t) => t.id === saved) ? saved : 'xp';
   });
 
-  const track = tracks[current];   //the playing song (undefined if none)
+  // the playing song
+  const track = tracks[current];   
 
- //effects
 
-  //when the volume changes: apply it to the audio and remember it
+  // when thw audio changes apply it to the audio and remember it
   useEffect(() => {
     audioRef.current.volume = volume / 100;
     saveSetting('volume', volume);
   }, [volume]);
 
-  //when the theme changes: remember it
+  // rember when theme changes
   useEffect(() => saveSetting('theme', theme), [theme]);
 
-  //show the song name as the window title
+  // when the time is up, pause the music.
+  // runs again whenever the user changes the timer
+  useEffect(() => {
+    if (sleepMinutes === 0) {
+      setSecondsLeft(0);
+      return;
+    }
+
+    const endTime = Date.now() + sleepMinutes * 60 * 1000;
+    setSecondsLeft(sleepMinutes * 60);
+
+    const interval = setInterval(() => {
+      const left = Math.round((endTime - Date.now()) / 1000);
+      if (left <= 0) {
+        audioRef.current.pause();
+        setSleepMinutes(0);           
+      } else {
+        setSecondsLeft(left);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);   
+  }, [sleepMinutes]);
+
+  // show the song name as the window title
   useEffect(() => {
     document.title = track ? track.title : 'Luma';
   }, [track]);
 
+  // keyboard shortcuts 
+  useEffect(() => {
+    function onKeyDown(e) {
+      //ignore keys while typing in the search box or using a dropdown
+      if (e.target.matches('input[type="search"], select')) return;
 
-  //actions: what the buttons do
+      const audio = audioRef.current;
+      switch (e.key.toLowerCase()) {
+        case ' ':          e.preventDefault(); e.target.blur(); togglePlay(); break;
+        case 'arrowright': audio.currentTime += 5; break;
+        case 'arrowleft':  audio.currentTime -= 5; break;
+        case 'arrowup':    e.preventDefault(); setVolume(Math.min(100, volume + 5)); break;
+        case 'arrowdown':  e.preventDefault(); setVolume(Math.max(0, volume - 5)); break;
+        case 'n': nextTrack(); break;
+        case 'p': previousTrack(); break;
+        case 's': setShuffle(!shuffle); break;
+        case 'r': cycleRepeat(); break;
+        case 't': cycleTheme(); break;
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  });
 
-  //the user picked a folder: keep the audio files and play the first one
+
+  // folder picked by user
   function loadFolder(files) {
     const audioFiles = Array.from(files).filter(
       (f) => f.type.startsWith('audio/') || AUDIO_FILE.test(f.name)
     );
 
-    //sort by path; "numeric" puts song 2 before song 10
+    // sort by path
     audioFiles.sort((a, b) =>
       a.webkitRelativePath.localeCompare(b.webkitRelativePath, undefined, { numeric: true })
     );
 
     const newTracks = audioFiles.map(makeTrack);
+
+    // converted and added songs are saved there
+    if (files.length > 0) setFolderPath(getFolderPath(files[0]));
     setTracks(newTracks);
     setCurrent(-1);
-    playTrack(0, newTracks);   // we pass the list because "tracks" has not updated yet
+    playTrack(0, newTracks);   
   }
 
-  //play the song at this position
+  // Add one song to the end of the playlist
+  function addTrack(file) {
+    setTracks((oldTracks) => [...oldTracks, makeTrack(file)]);
+  }
+
+  // play the song at this position
   function playTrack(index, list = tracks) {
     if (!list[index]) return;
 
-    if (audioUrl) URL.revokeObjectURL(audioUrl);                 // free the old address
-    setAudioUrl(URL.createObjectURL(list[index].file));          // <audio autoPlay> starts it
+    if (audioUrl) URL.revokeObjectURL(audioUrl);                 
+    setAudioUrl(URL.createObjectURL(list[index].file));         
     setCurrent(index);
   }
 
   function togglePlay() {
     if (current === -1) {
-      //nothing loaded yet: play the first song, or open the folder picker
+      //play the first song, or open the folder picker 
       if (tracks.length > 0) playTrack(0);
       else folderInputRef.current.click();
       return;
@@ -130,14 +203,14 @@ export default function App() {
   function nextTrack() {
     if (tracks.length === 0) return;
     const next = shuffle
-      ? Math.floor(Math.random() * tracks.length)   // a random song
-      : (current + 1) % tracks.length;              // the next one (wraps to the start)
+      ? Math.floor(Math.random() * tracks.length)   
+      : (current + 1) % tracks.length;              
     playTrack(next);
   }
 
   function previousTrack() {
     if (tracks.length === 0) return;
-    //after 3 seconds, "previous" restarts the song instead
+    // After 3 seconds, the previous buttonn restarts the song instead
     if (audioRef.current.currentTime > 3) {
       audioRef.current.currentTime = 0;
       return;
@@ -145,7 +218,7 @@ export default function App() {
     playTrack((current - 1 + tracks.length) % tracks.length);
   }
 
-  //runs when a song finishes by itself
+  // run when a song finishes by itself
   function handleEnded() {
     if (repeat === 'one') {
       audioRef.current.currentTime = 0;
@@ -153,7 +226,7 @@ export default function App() {
       return;
     }
     const isLastSong = current === tracks.length - 1;
-    if (isLastSong && repeat === 'off' && !shuffle) return;   // stop at the end
+    if (isLastSong && repeat === 'off' && !shuffle) return;   
     nextTrack();
   }
 
@@ -173,15 +246,13 @@ export default function App() {
     setCurrentTime(seconds);
   }
 
-  
-
-  // window.electronAPI exists only inside Electron
+  // window.electronAPI exists only inside Electron (see electron/preload.js)
   const windowApi = window.electronAPI;
 
   return (
     <div className="window" data-theme={theme}>
 
-      
+      {/* The real audio player*/}
       <audio
         ref={audioRef}
         src={audioUrl || undefined}
@@ -193,24 +264,24 @@ export default function App() {
         onEnded={handleEnded}
       />
 
-      {/*title bar: drag it to move the window */}
+      {/*  drag the title bar to move the window */}
       <header className="titlebar">
-        <span>♫ Luma</span>
+        <span className="logo"><Icon name="music" /> Luma</span>
         <div className="titlebar-buttons">
           <select value={theme} onChange={(e) => setTheme(e.target.value)} title="Theme (T)">
             {THEMES.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
-          <button onClick={() => windowApi?.minimize()} title="Minimize">–</button>
-          <button onClick={() => windowApi?.close()} title="Close">✕</button>
+          <button onClick={() => windowApi?.minimize()} title="Minimize"><Icon name="minimize" size={14} /></button>
+          <button onClick={() => windowApi?.close()} title="Close"><Icon name="close" size={14} /></button>
         </div>
       </header>
 
       <main className="content">
         <Visualizer audioRef={audioRef} />
 
-        {/* Song name */}
+        {/* song name */}
         <div className="panel">
           <div className="song-title">{track ? track.title : 'No music'}</div>
           <div className="song-artist">
@@ -218,7 +289,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Progress bar */}
+        {/* progress bar */}
         <div className="row">
           <small>{formatTime(currentTime)}</small>
           <input
@@ -232,22 +303,22 @@ export default function App() {
           <small>{formatTime(duration)}</small>
         </div>
 
-        {/* buuttons */}
+        {/*buttons */}
         <div className="row center big-buttons">
-          <button className={shuffle ? 'on' : ''} onClick={() => setShuffle(!shuffle)} title="Shuffle (S)">🔀</button>
-          <button onClick={previousTrack} title="Previous (P)">⏮</button>
+          <button className={shuffle ? 'on' : ''} onClick={() => setShuffle(!shuffle)} title="Shuffle (S)"><Icon name="shuffle" size={20} /></button>
+          <button onClick={previousTrack} title="Previous (P)"><Icon name="previous" size={20} /></button>
           <button className="on" onClick={togglePlay} title="Play / Pause (Space)">
-            {isPlaying ? '⏸' : '▶'}
+            <Icon name={isPlaying ? 'pause' : 'play'} size={20} />
           </button>
-          <button onClick={nextTrack} title="Next (N)">⏭</button>
+          <button onClick={nextTrack} title="Next (N)"><Icon name="next" size={20} /></button>
           <button className={repeat !== 'off' ? 'on' : ''} onClick={cycleRepeat} title="Repeat (R)">
-            {repeat === 'one' ? '🔂' : '🔁'}
+            <Icon name={repeat === 'one' ? 'repeat-one' : 'repeat'} size={20} />
           </button>
         </div>
 
         {/* volume */}
         <div className="row">
-          🔈
+          <Icon name="volume" />
           <input
             type="range"
             min="0"
@@ -257,9 +328,24 @@ export default function App() {
           />
         </div>
 
-        {/* Folder button and search */}
+        {/* timwer*/}
         <div className="row">
-          <button onClick={() => folderInputRef.current.click()}>📁 Folder</button>
+          <Icon name="timer" />
+          <select value={sleepMinutes} onChange={(e) => setSleepMinutes(Number(e.target.value))}>
+            <option value="0">Sleep timer: off</option>
+            <option value="5">Stop in 5 min</option>
+            <option value="15">Stop in 15 min</option>
+            <option value="30">Stop in 30 min</option>
+            <option value="45">Stop in 45 min</option>
+            <option value="60">Stop in 60 min</option>
+            <option value="90">Stop in 90 min</option>
+          </select>
+          {sleepMinutes > 0 && <small>{formatTime(secondsLeft)} left</small>}
+        </div>
+
+        {/* folder button and search*/}
+        <div className="row">
+          <button onClick={() => folderInputRef.current.click()}><Icon name="folder" /> Folder</button>
           <input
             type="search"
             placeholder="Search..."
@@ -268,12 +354,32 @@ export default function App() {
           />
         </div>
 
-        <Playlist tracks={tracks} current={current} search={search} onSelect={playTrack} />
+        {/* show the playlist, the converter or the settings */}
+        {view === 'playlist' && (
+          <Playlist tracks={tracks} current={current} search={search} onSelect={playTrack} />
+        )}
+        {view === 'convert' && <Converter />}
+        {view === 'settings' && <Settings folder={folderPath} onSongAdded={addTrack} />}
 
-        <small>{tracks.length} tracks</small>
+        {/* clicking the active button again goes back to the playlist */}
+        <div className="row footer">
+          <small>{tracks.length} tracks</small>
+          <div className="row">
+            <button
+              className={view === 'convert' ? 'on' : ''}
+              onClick={() => setView(view === 'convert' ? 'playlist' : 'convert')}>
+              <Icon name="convert" /> Convert
+            </button>
+            <button
+              className={view === 'settings' ? 'on' : ''}
+              onClick={() => setView(view === 'settings' ? 'playlist' : 'settings')}>
+              <Icon name="settings" /> Settings
+            </button>
+          </div>
+        </div>
       </main>
 
-      {/*hidden folder picker, opened by the "Folder" button */}
+      {/* hidden folder picker */}
       <input
         ref={folderInputRef}
         type="file"

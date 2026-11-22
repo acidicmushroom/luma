@@ -1,8 +1,6 @@
-/* layiut and shapes (the colors come from themes.css) */
-
 * { box-sizing: border-box; }
 
-/* Transparent page: only the player is visible */
+/*transparent page*/
 html, body, #root {
   margin: 0;
   height: 100%;
@@ -23,7 +21,7 @@ html, body, #root {
   overflow: hidden;
 }
 
-/*title bar*/
+/*tittle bar*/
 .titlebar {
   display: flex;
   justify-content: space-between;
@@ -32,19 +30,19 @@ html, body, #root {
   background: var(--titlebar);
   color: var(--titlebar-text);
   font-weight: bold;
-  -webkit-app-region: drag;       /*you can drag the window by this bar*/
+  -webkit-app-region: drag;      
 }
 .titlebar-buttons { display: flex; gap: 4px; }
 .titlebar button,
 .titlebar select {
-  -webkit-app-region: no-drag;    /*but the buttons still work*/
+  -webkit-app-region: no-drag;    
   padding: 2px 6px;
 }
 
 /*main area*/
 .content {
   flex: 1;
-  min-height: 0;                  /*lets the playlist shrink and scroll*/
+  min-height: 0;                 
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -80,13 +78,13 @@ html, body, #root {
 
 small { opacity: 0.75; }
 
-/*buttons and inputs*/
+/* button inputs*/
 button, select, input[type="search"] {
   font: inherit;
   color: var(--text);
   background: var(--button);
   border: var(--border);
-  border-radius: calc(var(--radius) / 3);
+  border-radius: var(--button-radius);
   padding: 4px 8px;
   cursor: pointer;
 }
@@ -96,7 +94,7 @@ button:active { filter: brightness(0.9); }
 
 .big-buttons button { min-width: 42px; font-size: 15px; }
 
-/*A button that is switched on (play, shuffle, repeat)*/
+/*switchable buttons*/
 button.on { background: var(--accent); color: var(--accent-text); }
 
 input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
@@ -114,3 +112,36 @@ input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
 .playlist li:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
 .playlist li.playing { background: var(--accent); color: var(--accent-text); }
 .playlist li.message { cursor: default; opacity: 0.7; text-align: center; padding: 14px; }
+
+/*sleep timer and footer*/
+.row select { flex: 1; min-width: 0; }
+.footer { justify-content: space-between; }
+.footer button { padding: 2px 8px; }
+
+/*converter panel*/
+.converter, .settings {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+.converter input[type="text"] {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: var(--border);
+  border-radius: var(--button-radius);
+  padding: 4px 8px;
+  width: 100%;
+}
+.converter button:disabled, .settings button:disabled { opacity: 0.5; cursor: wait; }
+.status-text { white-space: pre-line; word-break: break-word; }
+
+.folder-path { word-break: break-all; opacity: 0.85; }
+
+/*icons*/
+.icon { display: block; flex: none; }   /* the color comes from the button's text color */
+button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.logo { display: flex; align-items: center; gap: 6px; }

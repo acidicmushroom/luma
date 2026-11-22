@@ -1,7 +1,7 @@
 {
   "name": "luma",
   "version": "1.0.0",
-  "description": "Luma - a small retro music player",
+  "description": "Luma - a small retro music player (converter is display-only)",
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"wait-on tcp:127.0.0.1:5173 && electron . --dev\"",
@@ -23,10 +23,22 @@
   "build": {
     "appId": "com.luma.player",
     "productName": "Luma",
-    "directories": { "output": "release" },
-    "files": ["dist/**", "electron/**", "package.json"],
-    "win": { "target": "nsis" },
-    "mac": { "target": "dmg" },
-    "linux": { "target": "AppImage" }
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }

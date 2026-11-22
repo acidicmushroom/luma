@@ -1,4 +1,4 @@
-// song list. Click a song to play it.
+// list of songs
 
 import { useEffect, useRef } from 'react';
 
@@ -16,7 +16,7 @@ export default function Playlist({ tracks, current, search, onSelect }) {
     label: track.artist ? `${track.artist} – ${track.title}` : track.title
   }));
 
-  // keep only the rows that match the search box
+  //keep only the rows that match the search box
   const visibleRows = rows.filter((row) =>
     row.label.toLowerCase().includes(search.toLowerCase())
   );
@@ -34,7 +34,7 @@ export default function Playlist({ tracks, current, search, onSelect }) {
           </li>
         ))}
 
-        {/* message when there is nothing to show */}
+        {/*message when nothing to show */}
         {visibleRows.length === 0 && (
           <li className="message">
             {tracks.length ? 'No results.' : 'Click "Folder" and choose your music.'}

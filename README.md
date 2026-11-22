@@ -1,4 +1,4 @@
-# Luma
+# Luma (version without a working converter)
 
-A small desktop music player built with React and Electron with custom themes
+A small desktop music player built with React Electron
 
